@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>GO-BLOX · PLAYER</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:     #060a0e;
+  --surf:   #0c1520;
+  --border: #182535;
+  --accent: #00e5ff;
+  --green:  #00ff88;
+  --red:    #ff3b3b;
+  --yellow: #ffd600;
+  --warn:   #ff8c00;
+  --text:   #b0c8d8;
+  --muted:  #3a5568;
+  --font:   'Share Tech Mono', monospace;
+  --font2:  'Orbitron', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* SCANLINES */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none; z-index: 9999;
+}
+
+/* ─── SETUP SCREEN ──────────────────────────── */
+#setupScreen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 500;
+}
+.setup-box {
+  border: 1px solid var(--border);
+  background: var(--surf);
+  padding: 40px 36px;
+  width: min(440px, 96vw);
+  position: relative;
+}
+.setup-box::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+}
+
+.setup-logo {
+  font-family: var(--font2);
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,229,255,0.4);
+  margin-bottom: 4px;
+}
+.setup-sub {
+  font-size: 11px; letter-spacing: 3px;
+  color: var(--muted); text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+.field { margin-bottom: 20px; }
+.field label {
+  display: block;
+  font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+}
+.field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--accent); }
+
+.connect-btn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font2);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  padding: 14px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-top: 8px;
+}
+.connect-btn:hover {
+  background: rgba(0,229,255,0.1);
+  box-shadow: 0 0 20px rgba(0,229,255,0.2);
+}
+
+.setup-note {
+  margin-top: 16px;
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--muted); line-height: 1.8;
+}
+
+/* ─── GAME SCREEN ───────────────────────────── */
+#gameScreen {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* TOP BAR */
+.top-bar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surf);
+  flex-shrink: 0;
+}
+.player-id-badge {
+  font-family: var(--font2);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+.net-indicator {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.net-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.net-dot.ok  { background: var(--green); box-shadow: 0 0 7px var(--green); }
+.net-dot.err { background: var(--red);   box-shadow: 0 0 7px var(--red);   animation: blink 0.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* CENTER: MAP + STATS */
+.center-area {
+  flex: 1; display: flex; gap: 0;
+  overflow: hidden;
+}
+
+/* MINI MAP */
+.map-area {
+  flex: 1;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.section-label {
+  font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--muted);
+}
+
+canvas#miniMap {
+  width: 100%; max-width: 300px;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  background: #040810;
+  display: block;
+}
+
+/* STATS SIDE */
+.stats-side {
+  width: 170px;
+  border-left: 1px solid var(--border);
+  padding: 14px 12px;
+  display: flex; flex-direction: column; gap: 16px;
+  overflow-y: auto;
+}
+@media (max-width: 500px) {
+  .stats-side { width: 110px; }
+}
+
+.stat-row { display: flex; flex-direction: column; gap: 4px; }
+.stat-row .lbl {
+  font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+}
+.stat-row .val {
+  font-size: 18px; letter-spacing: 1px;
+  color: var(--accent);
+}
+.stat-row .val.green  { color: var(--green); }
+.stat-row .val.yellow { color: var(--yellow); }
+.stat-row .val.red    { color: var(--red); }
+
+.others-list {
+  display: flex; flex-direction: column; gap: 5px;
+}
+.other-item {
+  font-size: 10px; padding: 5px 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  letter-spacing: 1px;
+  display: flex; justify-content: space-between;
+  align-items: center;
+}
+.other-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--yellow);
+  box-shadow: 0 0 5px var(--yellow);
+}
+
+/* ─── CONTROLS ──────────────────────────────── */
+.controls-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 20px 20px;
+  background: var(--surf);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+/* D-PAD */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 56px);
+  gap: 4px;
+}
+
+.btn {
+  width: 56px; height: 56px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.08s, border-color 0.08s, transform 0.05s;
+  touch-action: none;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(0,229,255,0.15) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.1s;
+}
+.btn.active, .btn:active {
+  background: #0a1e30;
+  border-color: var(--accent);
+  transform: scale(0.94);
+}
+.btn.active::after { opacity: 1; }
+.btn.empty { pointer-events: none; opacity: 0; }
+
+/* ROT buttons */
+.rot-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.rot-btn {
+  width: 64px; height: 64px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  touch-action: none;
+  transition: background 0.08s, border-color 0.08s;
+}
+.rot-btn.active {
+  background: #0a1e30;
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.controls-hint {
+  display: none;
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--muted); text-align: center;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+@media (min-width: 700px) {
+  .controls-hint { display: block; }
+}
+
+/* ─── DISCONNECT BTN ────────────────────────── */
+.disconnect-btn {
+  background: none;
+  border: 1px solid #2a1515;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 10px; letter-spacing: 2px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.2s, border-color 0.2s;
+}
+.disconnect-btn:hover {
+  color: var(--red); border-color: var(--red);
+}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP ───────────────────────────────── -->
+<div id="setupScreen">
+  <div class="setup-box">
+    <div class="setup-logo">GO-BLOX</div>
+    <div class="setup-sub">Player Web Controller</div>
+
+    <div class="field">
+      <label>ID de jugador</label>
+      <input id="inputId" type="text" value="web_player_01" placeholder="ej: web_alice" maxlength="22"/>
+    </div>
+    <div class="field">
+      <label>Servidor (URL)</label>
+      <input id="inputServer" type="text" value="http://localhost:3000/state" placeholder="http://192.168.1.X:3000/state"/>
+    </div>
+    <div class="field">
+      <label>Posición inicial X</label>
+      <input id="inputX" type="number" value="5.5" step="0.5" min="1" max="14"/>
+    </div>
+    <div class="field">
+      <label>Posición inicial Y</label>
+      <input id="inputY" type="number" value="5.5" step="0.5" min="1" max="14"/>
+    </div>
+
+    <button class="connect-btn" onclick="startGame()">▶ CONECTAR AL SERVIDOR</button>
+    <div class="setup-note">
+      Asegúrate de que el servidor esté corriendo.<br>
+      Este cliente usa <strong>source: "web"</strong> para diferenciarse de los ESP32.
+    </div>
+  </div>
+</div>
+
+<!-- ── GAME ────────────────────────────────── -->
+<div id="gameScreen">
+
+  <div class="top-bar">
+    <div class="player-id-badge" id="displayId">PLAYER</div>
+    <div class="net-indicator">
+      <div class="net-dot" id="netDot"></div>
+      <span id="netLabel">OFFLINE</span>
+    </div>
+    <button class="disconnect-btn" onclick="disconnect()">✕ SALIR</button>
+  </div>
+
+  <div class="center-area">
+
+    <div class="map-area">
+      <div class="section-label">Minimapa</div>
+      <canvas id="miniMap" width="240" height="240"></canvas>
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px">
+        ↑ WASD o D-PAD para moverte
+      </div>
+    </div>
+
+    <div class="stats-side">
+      <div class="stat-row">
+        <div class="lbl">Pos X</div>
+        <div class="val green" id="dispX">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="lbl">Pos Y</div>
+        <div class="val green" id="dispY">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="lbl">Rot (rad)</div>
+        <div class="val" id="dispRot">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="lbl">Ping</div>
+        <div class="val yellow" id="dispPing">—</div>
+      </div>
+      <div class="stat-row">
+        <div class="lbl">Otros jugadores</div>
+        <div class="val" id="dispOthersCount">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="lbl">En el mapa</div>
+        <div class="others-list" id="othersList"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-area">
+    <div>
+      <div class="dpad">
+        <div class="btn empty"></div>
+        <div class="btn" id="btnUp"    data-action="up">▲</div>
+        <div class="btn empty"></div>
+        <div class="btn" id="btnLeft"  data-action="left">◀</div>
+        <div class="btn empty"></div>
+        <div class="btn" id="btnRight" data-action="right">▶</div>
+        <div class="btn empty"></div>
+        <div class="btn" id="btnDown"  data-action="down">▼</div>
+        <div class="btn empty"></div>
+      </div>
+      <div class="controls-hint">W A S D · Flechas</div>
+    </div>
+
+    <div class="rot-group">
+      <div class="rot-btn" id="btnRotL" data-action="rotL">↺</div>
+      <div class="rot-btn" id="btnRotR" data-action="rotR">↻</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── MAP ───────────────────────────────────────
+const MAP = [
+  [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,3,3,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,3,0,4,0,0,0,0,0,0,0,2,0,2,2],
+  [2,0,3,4,3,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,4,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2],
+  [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+];
+
+// ── PLAYER STATE ──────────────────────────────
+let playerId  = '';
+let serverUrl = '';
+let posX = 5.5, posY = 5.5, rot = 0;
+let dirX = 1, dirY = 0;
+const MOV_SPD = 3.0;
+const ROT_SPD = 2.2;
+let others = [];
+let running = false;
+
+const keys    = new Set();   // teclado activo
+const pressed = new Set();   // botones táctiles activos
+
+function isWall(x, y) {
+  const mx = Math.floor(x), my = Math.floor(y);
+  if (mx < 0 || mx >= 16 || my < 0 || my >= 16) return true;
+  return MAP[my][mx] !== 0;
+}
+
+// ── SETUP ─────────────────────────────────────
+function startGame() {
+  playerId  = document.getElementById('inputId').value.trim() || 'web_player';
+  serverUrl = document.getElementById('inputServer').value.trim();
+  posX = parseFloat(document.getElementById('inputX').value) || 5.5;
+  posY = parseFloat(document.getElementById('inputY').value) || 5.5;
+
+  document.getElementById('setupScreen').style.display = 'none';
+  const gs = document.getElementById('gameScreen');
+  gs.style.display = 'flex';
+  document.getElementById('displayId').textContent = playerId;
+
+  running = true;
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+  netLoop();
+}
+
+function disconnect() {
+  running = false;
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('netDot').className = 'net-dot';
+  document.getElementById('netLabel').textContent = 'OFFLINE';
+}
+
+// ── INPUT ─────────────────────────────────────
+document.addEventListener('keydown', e => keys.add(e.key.toLowerCase()));
+document.addEventListener('keyup',   e => keys.delete(e.key.toLowerCase()));
+
+const btnMap = {
+  btnUp:'up', btnDown:'down', btnLeft:'left', btnRight:'right',
+  btnRotL:'rotL', btnRotR:'rotR'
+};
+
+Object.keys(btnMap).forEach(id => {
+  const el = document.getElementById(id);
+  const action = btnMap[id];
+
+  const down = e => { e.preventDefault(); pressed.add(action); el.classList.add('active'); };
+  const up   = e => { e.preventDefault(); pressed.delete(action); el.classList.remove('active'); };
+
+  el.addEventListener('touchstart', down, { passive: false });
+  el.addEventListener('touchend',   up,   { passive: false });
+  el.addEventListener('mousedown',  down);
+  el.addEventListener('mouseup',    up);
+  el.addEventListener('mouseleave', up);
+});
+
+function isActive(a) {
+  return pressed.has(a) ||
+    (a === 'up'   && (keys.has('w') || keys.has('arrowup')))    ||
+    (a === 'down' && (keys.has('s') || keys.has('arrowdown')))  ||
+    (a === 'rotL' && (keys.has('a') || keys.has('arrowleft')))  ||
+    (a === 'rotR' && (keys.has('d') || keys.has('arrowright'))) ||
+    (a === 'left' && keys.has('q'))  ||
+    (a === 'right'&& keys.has('e'));
+}
+
+// ── GAME LOOP ─────────────────────────────────
+let lastTime = 0;
+
+function gameLoop(now) {
+  if (!running) return;
+
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
+
+  // Move
+  if (isActive('up')) {
+    const nx = posX + dirX * MOV_SPD * dt;
+    const ny = posY + dirY * MOV_SPD * dt;
+    if (!isWall(nx, posY)) posX = nx;
+    if (!isWall(posX, ny)) posY = ny;
+  }
+  if (isActive('down')) {
+    const nx = posX - dirX * MOV_SPD * dt;
+    const ny = posY - dirY * MOV_SPD * dt;
+    if (!isWall(nx, posY)) posX = nx;
+    if (!isWall(posX, ny)) posY = ny;
+  }
+
+  // Strafe
+  const perpX = -dirY, perpY = dirX;
+  if (isActive('left')) {
+    const nx = posX - perpX * MOV_SPD * dt;
+    const ny = posY - perpY * MOV_SPD * dt;
+    if (!isWall(nx, posY)) posX = nx;
+    if (!isWall(posX, ny)) posY = ny;
+  }
+  if (isActive('right')) {
+    const nx = posX + perpX * MOV_SPD * dt;
+    const ny = posY + perpY * MOV_SPD * dt;
+    if (!isWall(nx, posY)) posX = nx;
+    if (!isWall(posX, ny)) posY = ny;
+  }
+
+  // Rotate
+  if (isActive('rotL')) {
+    rot += ROT_SPD * dt;
+    dirX = Math.cos(rot); dirY = Math.sin(rot);
+  }
+  if (isActive('rotR')) {
+    rot -= ROT_SPD * dt;
+    dirX = Math.cos(rot); dirY = Math.sin(rot);
+  }
+
+  rot = ((rot % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+
+  updateHUD();
+  drawMinimap();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ── HUD ───────────────────────────────────────
+function updateHUD() {
+  document.getElementById('dispX').textContent   = posX.toFixed(2);
+  document.getElementById('dispY').textContent   = posY.toFixed(2);
+  document.getElementById('dispRot').textContent = rot.toFixed(3);
+  document.getElementById('dispOthersCount').textContent = others.length;
+
+  const list = document.getElementById('othersList');
+  list.innerHTML = others.length === 0
+    ? '<span style="font-size:10px;color:var(--muted)">Ninguno</span>'
+    : others.map(o =>
+        `<div class="other-item"><span>${o.id}</span><span class="other-dot ${o.source==='web'?'':''}"></span></div>`
+      ).join('');
+}
+
+// ── MINIMAP ───────────────────────────────────
+const mmCanvas = document.getElementById('miniMap');
+const mmCtx    = mmCanvas.getContext('2d');
+const CELL = 240/16;
+const WALL_C = { 2:'#1a3a5a', 3:'#152a3a', 4:'#20354a' };
+
+function drawMinimap() {
+  mmCtx.clearRect(0,0,240,240);
+  mmCtx.fillStyle = '#040810';
+  mmCtx.fillRect(0,0,240,240);
+
+  for (let y=0; y<16; y++) {
+    for (let x=0; x<16; x++) {
+      const c = MAP[y][x];
+      if (c > 0) {
+        mmCtx.fillStyle = WALL_C[c]||'#1a3a5a';
+        mmCtx.fillRect(x*CELL, y*CELL, CELL, CELL);
+      }
+    }
+  }
+
+  // Grid
+  mmCtx.strokeStyle='rgba(26,42,58,0.5)'; mmCtx.lineWidth=0.5;
+  for(let i=0;i<=16;i++){
+    mmCtx.beginPath();mmCtx.moveTo(i*CELL,0);mmCtx.lineTo(i*CELL,240);mmCtx.stroke();
+    mmCtx.beginPath();mmCtx.moveTo(0,i*CELL);mmCtx.lineTo(240,i*CELL);mmCtx.stroke();
+  }
+
+  // Others
+  others.forEach(o => {
+    const px = o.x * CELL, py = o.y * CELL;
+    const col = (o.source === 'web') ? '#00e5ff' : '#ffd600';
+    const len = CELL * 0.6;
+    mmCtx.strokeStyle = '#00ff88'; mmCtx.lineWidth = 1.5;
+    mmCtx.beginPath();
+    mmCtx.moveTo(px, py);
+    mmCtx.lineTo(px + Math.cos(o.rot||0)*len, py + Math.sin(o.rot||0)*len);
+    mmCtx.stroke();
+    mmCtx.fillStyle = col;
+    mmCtx.shadowColor = col; mmCtx.shadowBlur = 6;
+    mmCtx.beginPath();
+    mmCtx.arc(px, py, CELL*0.28, 0, Math.PI*2);
+    mmCtx.fill();
+    mmCtx.shadowBlur = 0;
+  });
+
+  // Self
+  const sx = posX * CELL, sy = posY * CELL;
+  const len = CELL * 0.7;
+  mmCtx.strokeStyle = '#00ff88'; mmCtx.lineWidth = 2;
+  mmCtx.beginPath();
+  mmCtx.moveTo(sx, sy);
+  mmCtx.lineTo(sx + dirX*len, sy + dirY*len);
+  mmCtx.stroke();
+
+  mmCtx.fillStyle = '#00ff88';
+  mmCtx.shadowColor = '#00ff88'; mmCtx.shadowBlur = 12;
+  mmCtx.beginPath();
+  mmCtx.arc(sx, sy, CELL*0.38, 0, Math.PI*2);
+  mmCtx.fill();
+  mmCtx.shadowBlur = 0;
+
+  // FOV cone
+  const FOV = 0.66;
+  const plnX = -dirY * FOV, plnY = dirX * FOV;
+  mmCtx.strokeStyle = 'rgba(0,229,255,0.25)'; mmCtx.lineWidth = 1;
+  mmCtx.beginPath();
+  mmCtx.moveTo(sx, sy);
+  mmCtx.lineTo(sx + (dirX + plnX)*CELL*2, sy + (dirY + plnY)*CELL*2);
+  mmCtx.moveTo(sx, sy);
+  mmCtx.lineTo(sx + (dirX - plnX)*CELL*2, sy + (dirY - plnY)*CELL*2);
+  mmCtx.stroke();
+}
+
+// ── NET LOOP ──────────────────────────────────
+let pingMs = 0;
+
+async function netLoop() {
+  if (!running) return;
+
+  const t0 = performance.now();
+  try {
+    const res = await fetch(serverUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id:  playerId,
+        x:   posX,
+        y:   posY,
+        rot: rot,
+        source: 'web'
+      })
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    pingMs = Math.round(performance.now() - t0);
+    others = data;
+
+    document.getElementById('netDot').className  = 'net-dot ok';
+    document.getElementById('netLabel').textContent = 'ONLINE';
+    document.getElementById('dispPing').textContent = pingMs + 'ms';
+    document.getElementById('dispPing').className   = 'val ' +
+      (pingMs < 100 ? 'green' : pingMs < 300 ? 'yellow' : 'red');
+
+  } catch(e) {
+    document.getElementById('netDot').className  = 'net-dot err';
+    document.getElementById('netLabel').textContent = 'ERROR';
+    document.getElementById('dispPing').textContent = '—';
+    console.warn('[NET]', e.message);
+  }
+
+  setTimeout(() => { if (running) netLoop(); }, 150);
+}
+
+// ── INIT DRAW ─────────────────────────────────
+drawMinimap();
+</script>
+</body>
+</html>

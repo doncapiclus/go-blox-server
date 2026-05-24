@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GO-BLOX · SERVER DASHBOARD</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;600;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #080c10;
+  --surface: #0d1520;
+  --border:  #1a2a3a;
+  --accent:  #00e5ff;
+  --green:   #00ff88;
+  --red:     #ff3b3b;
+  --yellow:  #ffd600;
+  --text:    #c8d8e8;
+  --muted:   #456070;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-ui:   'Barlow Condensed', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.07) 2px,
+    rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ─── HEADER ────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, #0a1520 0%, #080c10 100%);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.logo {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,229,255,0.5);
+  text-transform: uppercase;
+}
+.logo span { color: var(--green); }
+
+.server-badge {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.status-pill {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── STATS BAR ─────────────────────────────── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-cell {
+  padding: 20px 28px;
+  border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.stat-cell:last-child { border-right: none; }
+.stat-cell::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+.stat-cell:hover::after { transform: scaleX(1); }
+
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 1;
+  color: var(--accent);
+  transition: color 0.2s;
+}
+.stat-value.green { color: var(--green); }
+.stat-value.yellow { color: var(--yellow); }
+
+/* ─── MAIN LAYOUT ───────────────────────────── */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  min-height: calc(100vh - 130px);
+}
+
+/* ─── MAP PANEL ─────────────────────────────── */
+.map-panel {
+  border-right: 1px solid var(--border);
+  padding: 24px;
+}
+
+.panel-title {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-title::before {
+  content: '';
+  display: block; width: 3px; height: 14px;
+  background: var(--accent);
+}
+
+.map-wrap {
+  position: relative;
+  width: 100%; max-width: 500px;
+}
+.map-wrap::before {
+  content: '';
+  position: absolute; inset: -1px;
+  border: 1px solid var(--border);
+  pointer-events: none;
+  z-index: 2;
+}
+
+canvas#mapCanvas {
+  display: block;
+  width: 100%; aspect-ratio: 1;
+  image-rendering: pixelated;
+  background: #050a0f;
+}
+
+.map-legend {
+  margin-top: 14px;
+  display: flex; gap: 20px; flex-wrap: wrap;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; color: var(--muted); letter-spacing: 1px;
+}
+.legend-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+
+/* ─── PLAYER LIST ───────────────────────────── */
+.list-panel {
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 0;
+}
+
+.player-list { display: flex; flex-direction: column; gap: 8px; }
+
+.player-card {
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  background: var(--surface);
+  position: relative;
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.player-card:hover {
+  border-color: var(--accent);
+  background: #111d28;
+}
+.player-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.player-card.source-web::before  { background: var(--green); }
+.player-card.source-esp32::before { background: var(--yellow); }
+.player-card.stale { opacity: 0.5; }
+
+.card-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.card-id {
+  font-size: 14px;
+  color: #fff;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.card-source {
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.card-source.web   { border-color: var(--green); color: var(--green); }
+.card-source.esp32 { border-color: var(--yellow); color: var(--yellow); }
+
+.card-coords {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px; margin-bottom: 8px;
+}
+.coord {
+  font-size: 11px;
+  color: var(--muted);
+}
+.coord span {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-age {
+  font-size: 10px; color: var(--muted); letter-spacing: 1px;
+}
+.kick-btn {
+  background: none;
+  border: 1px solid #2a1515;
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 2px;
+  padding: 3px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s;
+}
+.kick-btn:hover {
+  background: rgba(255,59,59,0.12);
+  border-color: var(--red);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+  font-size: 12px; letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px dashed var(--border);
+}
+.empty-state .big { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+/* ─── LOG ───────────────────────────────────── */
+.log-panel {
+  border-top: 1px solid var(--border);
+  padding: 0 32px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.log-line {
+  font-size: 11px; letter-spacing: 1px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--muted);
+  display: flex; gap: 12px;
+}
+.log-line .ts { color: #2a4a5a; }
+.log-line .msg { color: var(--text); }
+.log-line.join .msg  { color: var(--green); }
+.log-line.leave .msg { color: var(--red); }
+.log-panel::-webkit-scrollbar { width: 3px; }
+.log-panel::-webkit-scrollbar-track { background: transparent; }
+.log-panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ─── TICKER ────────────────────────────────── */
+.ticker {
+  font-size: 10px; letter-spacing: 2px;
+  color: var(--muted);
+  padding: 8px 32px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between;
+}
+
+/* ─── RESPONSIVE ────────────────────────────── */
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+  .map-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  .stats-bar { grid-template-columns: repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Go<span>-</span>Blox</div>
+    <div class="server-badge">Multiplayer Server Dashboard</div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="serverDot"></div>
+    <span id="serverStatus">SERVER ONLINE</span>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-cell">
+    <div class="stat-label">Jugadores activos</div>
+    <div class="stat-value green" id="statTotal">0</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">ESP32 conectados</div>
+    <div class="stat-value yellow" id="statEsp">0</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Clientes web</div>
+    <div class="stat-value" id="statWeb">0</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-label">Updates / seg</div>
+    <div class="stat-value" id="statUps">—</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- MAP -->
+  <div class="map-panel">
+    <div class="panel-title">Mapa · LEVEL_1 (16×16)</div>
+    <div class="map-wrap">
+      <canvas id="mapCanvas" width="320" height="320"></canvas>
+    </div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#1a3a5a"></div>Pared</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00e5ff"></div>Jugador (web)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffd600"></div>ESP32</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div>Dir. de vista</div>
+    </div>
+  </div>
+
+  <!-- PLAYER LIST -->
+  <div class="list-panel">
+    <div class="panel-title">Jugadores conectados</div>
+    <div class="player-list" id="playerList">
+      <div class="empty-state">
+        <div class="big">◈</div>
+        Esperando jugadores…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="log-panel" id="logPanel"></div>
+
+<div class="ticker">
+  <span id="tickerTime">—</span>
+  <span>GO-BLOX SERVER v1.0 · POST /state · DELETE /kick/:id</span>
+</div>
+
+<script>
+// ── MAP DATA ─────────────────────────────────
+const MAP = [
+  [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,3,3,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,3,0,4,0,0,0,0,0,0,0,2,0,2,2],
+  [2,0,3,4,3,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,4,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2],
+  [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+];
+
+const canvas = document.getElementById('mapCanvas');
+const ctx    = canvas.getContext('2d');
+const CELL   = 320 / 16;
+
+const WALL_COLOR = { 2:'#1a3a5a', 3:'#1a2a3a', 4:'#2a3a4a' };
+
+function drawMap(players) {
+  ctx.clearRect(0, 0, 320, 320);
+
+  // Floor
+  ctx.fillStyle = '#080c10';
+  ctx.fillRect(0, 0, 320, 320);
+
+  // Walls
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const c = MAP[y][x];
+      if (c > 0) {
+        ctx.fillStyle = WALL_COLOR[c] || '#1a3a5a';
+        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+        ctx.strokeStyle = '#0a1520';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x * CELL, y * CELL, CELL, CELL);
+      }
+    }
+  }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(26,42,58,0.4)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 16; i++) {
+    ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,320); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(320,i*CELL); ctx.stroke();
+  }
+
+  // Players
+  players.forEach(p => {
+    const px = p.x * CELL;
+    const py = p.y * CELL;
+    const isEsp = p.source !== 'web';
+    const col = isEsp ? '#ffd600' : '#00e5ff';
+
+    // Dir arrow
+    const len = CELL * 0.55;
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + Math.cos(p.rot) * len, py + Math.sin(p.rot) * len);
+    ctx.stroke();
+
+    // Dot
+    ctx.fillStyle = col;
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(px, py, CELL * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // ID label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold 8px 'Share Tech Mono'`;
+    ctx.textAlign = 'center';
+    ctx.fillText(p.id.slice(0, 8), px, py - CELL * 0.45);
+  });
+}
+
+// ── STATE ─────────────────────────────────────
+let prevIds = new Set();
+let updateCount = 0;
+let lastUpdateSecond = Date.now();
+let currentUps = 0;
+
+function addLog(type, msg) {
+  const panel = document.getElementById('logPanel');
+  const d = new Date();
+  const ts = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${msg}</span>`;
+  panel.prepend(line);
+  // keep max 50 lines
+  while (panel.children.length > 50) panel.lastChild.remove();
+}
+
+async function kickPlayer(id) {
+  try {
+    await fetch(`/kick/${id}`, { method: 'DELETE' });
+    addLog('leave', `KICK → ${id}`);
+  } catch(e) {}
+}
+
+function ageFmt(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms/1000).toFixed(1)}s`;
+}
+
+function renderCards(players) {
+  const list   = document.getElementById('playerList');
+  const curIds = new Set(players.map(p => p.id));
+
+  // Detect joins
+  curIds.forEach(id => {
+    if (!prevIds.has(id)) addLog('join', `JOIN ← ${id}`);
+  });
+  prevIds.forEach(id => {
+    if (!curIds.has(id)) addLog('leave', `LEAVE → ${id}`);
+  });
+  prevIds = curIds;
+
+  // Stats
+  const esp = players.filter(p => p.source !== 'web').length;
+  const web = players.filter(p => p.source === 'web').length;
+  document.getElementById('statTotal').textContent = players.length;
+  document.getElementById('statEsp').textContent   = esp;
+  document.getElementById('statWeb').textContent   = web;
+
+  if (players.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="big">◈</div>Esperando jugadores…</div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  players.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `player-card source-${p.source || 'esp32'}${p.age > 4000 ? ' stale' : ''}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-id">${p.id}</div>
+        <div class="card-source ${p.source === 'web' ? 'web' : 'esp32'}">${p.source || 'esp32'}</div>
+      </div>
+      <div class="card-coords">
+        <div class="coord">X<span>${p.x.toFixed(2)}</span></div>
+        <div class="coord">Y<span>${p.y.toFixed(2)}</span></div>
+        <div class="coord">ROT<span>${p.rot.toFixed(2)}</span></div>
+      </div>
+      <div class="card-footer">
+        <div class="card-age">Último ping: ${ageFmt(p.age)}</div>
+        <button class="kick-btn" onclick="kickPlayer('${p.id}')">KICK</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── POLL /players ─────────────────────────────
+async function poll() {
+  try {
+    const res  = await fetch('/players');
+    const data = await res.json();
+
+    updateCount++;
+    const now = Date.now();
+    if (now - lastUpdateSecond >= 1000) {
+      currentUps = updateCount;
+      updateCount = 0;
+      lastUpdateSecond = now;
+      document.getElementById('statUps').textContent = currentUps;
+    }
+
+    renderCards(data);
+    drawMap(data);
+
+    document.getElementById('serverDot').style.background = 'var(--green)';
+    document.getElementById('serverStatus').textContent   = 'SERVER ONLINE';
+  } catch(e) {
+    document.getElementById('serverDot').style.background = 'var(--red)';
+    document.getElementById('serverStatus').textContent   = 'SERVER OFFLINE';
+    addLog('leave', 'Error de conexión con el servidor');
+  }
+}
+
+// ── CLOCK ─────────────────────────────────────
+function clock() {
+  const d = new Date();
+  document.getElementById('tickerTime').textContent =
+    d.toLocaleTimeString('es-MX', { hour12: false }) +
+    ' · ' + d.toLocaleDateString('es-MX');
+}
+
+// Init
+drawMap([]);
+setInterval(poll, 500);
+setInterval(clock, 1000);
+clock();
+addLog('join', 'Dashboard conectado — esperando jugadores...');
+</script>
+</body>
+</html>
